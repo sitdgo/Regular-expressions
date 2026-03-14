@@ -1,38 +1,54 @@
 import csv
 import re
 
-# Читаем адресную книгу в формате CSV в список contacts_list
+# Читаем адресную книгу в формате CSV
 with open("phonebook_raw.csv", encoding="utf-8") as f:
     rows = csv.reader(f, delimiter=",")
     contacts_list = list(rows)
 
-# 1. Поместить Фамилию, Имя и Отчество человека в правильные поля
-for row in contacts_list[1:]:
-    full_name = " ".join(row[:3]).split()
-
-    row[0] = full_name[0] if len(full_name) > 0 else ""
-    row[1] = full_name[1] if len(full_name) > 1 else ""
-    row[2] = full_name[2] if len(full_name) > 2 else ""
-
-# 2. Привести все телефоны в нужный формат
+# Наш шаблон для поиска телефонов остался прежним
 phone_pattern = re.compile(
     r"(\+7|8)?\s*\(?(\d{3})\)?[\s-]?(\d{3})[\s-]?(\d{2})[\s-]?(\d{2})\s*\(?(доб\.)?\s*(\d+)?\)?"
 )
 
+# Создаем новый список для очищенных данных (совет преподавателя)
+cleaned_contacts = []
+
 for row in contacts_list[1:]:
-    phone = row[5]
+    # 1. Работа с ФИО
+    # Разбиваем строку на слова
+    full_name = " ".join(row[:3]).split()
+
+    # Добавляем пустые строки, если человек без отчества, чтобы длина всегда была 3
+    while len(full_name) < 3:
+        full_name.append("")
+
+    # Формируем новую, чистую строку (избегаем "затирания" исходника)
+    new_row = full_name + row[3:]
+
+    # 2. Работа с телефонами (используем if-else вместо заплаток)
+    phone = new_row[5]
     if phone:
-        # Подставляем найденные группы
-        formatted_phone = phone_pattern.sub(r"+7(\2)\3-\4-\5 доб.\7", phone)
-        # Убираем " доб.", только если он оказался в самом конце (то есть добавочных цифр не было)
-        if formatted_phone.endswith(" доб."):
-            formatted_phone = formatted_phone.replace(" доб.", "")
+        # Ищем совпадения по шаблону
+        match = phone_pattern.search(phone)
+        if match:
+            # Собираем базовую часть: +7(код)ХХХ-ХХ-ХХ
+            base_phone = f"+7({match.group(2)}){match.group(3)}-{match.group(4)}-{match.group(5)}"
 
-        row[5] = formatted_phone
+            # Проверяем, нашлась ли 7-я группа (цифры добавочного номера)
+            if match.group(7):
+                # Если да, приклеиваем " доб.ХХХХ" СТРОГО без пробела после точки
+                new_row[5] = f"{base_phone} доб.{match.group(7)}"
+            else:
+                # Если нет, оставляем только базу
+                new_row[5] = base_phone
 
-# 3. Объединить все дублирующиеся записи о человеке в одну
+    # Добавляем обработанную строку в наш новый список
+    cleaned_contacts.append(new_row)
+
+# 3. Объединение дубликатов
 contacts_dict = {}
-for row in contacts_list[1:]:
+for row in cleaned_contacts:
     key = (row[0], row[1])
 
     if key not in contacts_dict:
@@ -43,9 +59,12 @@ for row in contacts_list[1:]:
             if not existing_row[i]:
                 existing_row[i] = row[i]
 
+# Склеиваем заголовки (нулевую строку) и наши уникальные записи
 final_contacts = [contacts_list[0]] + list(contacts_dict.values())
 
-# Сохраняем получившиеся данные
+# Сохраняем результат
 with open("phonebook.csv", "w", encoding="utf-8", newline='') as f:
     datawriter = csv.writer(f, delimiter=',')
     datawriter.writerows(final_contacts)
+
+print("Данные успешно обработаны и сохранены!")
