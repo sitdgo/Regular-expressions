@@ -38,7 +38,7 @@ for row in contacts_list[1:]:
             # Проверяем, нашлась ли 7-я группа (цифры добавочного номера)
             if match.group(7):
                 # Если да, приклеиваем " доб.ХХХХ" СТРОГО без пробела после точки
-                new_row[5] = f"{base_phone} доб.{match.group(7)}"
+                new_row[5] = f"{base_phone}доб.{match.group(7)}"
             else:
                 # Если нет, оставляем только базу
                 new_row[5] = base_phone
